@@ -2,24 +2,36 @@ import java.util.*;
 
 public class App {
     public static void main(String[] args) {
+        BookingRequestQueue queue = new BookingRequestQueue();
+
+        queue.addRequest(new Reservation("Abhi", "Single", "R001"));
+        queue.addRequest(new Reservation("Subha", "Single", "R002"));
+        queue.addRequest(new Reservation("Vanmathi", "Suite", "R003"));
+
         RoomInventory inventory = new RoomInventory();
         inventory.addRooms("Single", 2);
+        inventory.addRooms("Suite", 1);
 
         RoomAllocator allocator = new RoomAllocator(inventory);
-        AddOnServiceManager serviceManager = new AddOnServiceManager();
+        BookingHistory history = new BookingHistory();
 
-        Reservation r = new Reservation("Abhi", "Single", "R001");
-        String roomId = allocator.allocateRoom(r.getRoomType());
+        System.out.println("Room Allocation Processing");
 
-        if (roomId != null) {
-            serviceManager.addService(roomId, new Service("Spa Access", 1500));
+        while (!queue.isEmpty()) {
+            Reservation r = queue.processRequest();
+            String roomId = allocator.allocateRoom(r.getRoomType());
 
-            double totalAdditionalCost = serviceManager.calculateAdditionalCost(roomId);
+            if (roomId != null) {
+                System.out.println("Booking confirmed for Guest: "
+                        + r.getGuestName() + ", Room ID: " + roomId);
 
-            System.out.println("Add-On Service Selection");
-            System.out.println("Reservation ID: " + roomId);
-            System.out.println("Total Add-On Cost: " + totalAdditionalCost);
+                history.addBooking(r, roomId);
+            }
         }
+
+        System.out.println("\nBooking History Report");
+        BookingReportService reportService = new BookingReportService(history);
+        reportService.generateReport();
     }
 }
 
@@ -44,6 +56,26 @@ class Reservation {
 
     public String getReservationId() {
         return reservationId;
+    }
+}
+
+class BookingRequestQueue {
+    private Queue<Reservation> requestQueue;
+
+    public BookingRequestQueue() {
+        requestQueue = new LinkedList<>();
+    }
+
+    public void addRequest(Reservation reservation) {
+        requestQueue.offer(reservation);
+    }
+
+    public Reservation processRequest() {
+        return requestQueue.poll();
+    }
+
+    public boolean isEmpty() {
+        return requestQueue.isEmpty();
     }
 }
 
@@ -88,36 +120,31 @@ class RoomAllocator {
     }
 }
 
-class Service {
-    private String name;
-    private double cost;
+class BookingHistory {
+    private List<String> confirmedBookings = new ArrayList<>();
 
-    public Service(String name, double cost) {
-        this.name = name;
-        this.cost = cost;
+    public void addBooking(Reservation reservation, String roomId) {
+        confirmedBookings.add("Reservation ID: " + roomId +
+                ", Guest: " + reservation.getGuestName() +
+                ", Room Type: " + reservation.getRoomType());
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public double getCost() {
-        return cost;
+    public List<String> getBookings() {
+        return confirmedBookings;
     }
 }
 
-class AddOnServiceManager {
-    private Map<String, List<Service>> reservationServices = new HashMap<>();
+class BookingReportService {
+    private BookingHistory history;
 
-    public void addService(String reservationId, Service service) {
-        reservationServices.putIfAbsent(reservationId, new ArrayList<>());
-        reservationServices.get(reservationId).add(service);
+    public BookingReportService(BookingHistory history) {
+        this.history = history;
     }
 
-    public double calculateAdditionalCost(String reservationId) {
-        return reservationServices.getOrDefault(reservationId, Collections.emptyList())
-                .stream()
-                .mapToDouble(Service::getCost)
-                .sum();
+    public void generateReport() {
+        for (String booking : history.getBookings()) {
+            System.out.println(booking);
+        }
+        System.out.println("Total Bookings: " + history.getBookings().size());
     }
 }
